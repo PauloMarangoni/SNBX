@@ -1,6 +1,11 @@
 #include "platform.hpp"
 #include "glfw/glfw3.h"
 
+#if SNBX_WIN
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+
+#include "glfw/glfw3native.h"
 
 struct Window {
     GLFWwindow *glfwWindow;
@@ -40,16 +45,20 @@ bool platform_window_request_close(Window *window) {
 }
 
 void* platform_get_internal_handler(Window* window) {
-    //TODO
+#if SNBX_WIN
+    return glfwGetWin32Window(window->glfwWindow);
+#endif;
+    SNBX_ASSERT(false, "Not implemented");
 }
+
+inline UVec2 platform_window_get_size(Window* window) {
+    i32 width, height;
+    glfwGetWindowSize(window->glfwWindow, &width, &height);
+    return {width, height};
+}
+
 
 void platform_destroy_window(Window *window) {
     glfwDestroyWindow(window->glfwWindow);
     delete window;
 }
-
-
-
-
-
-

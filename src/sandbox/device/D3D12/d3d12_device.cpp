@@ -13,13 +13,13 @@ const u8 d3d12_num_frames = 3;
 
 
 struct D3D12Swapchain {
-    IDXGISwapChain4*                swapchain;
-    bool                            tearingSupported;
-    DXGI_FORMAT                     swapchainFormat;
-    ID3D12DescriptorHeap*           rtv_descriptor_heap;
-    u32                             rtv_descriptor_size;
-    ID3D12Resource*                 back_buffers[d3d12_num_frames];
-    CD3DX12_CPU_DESCRIPTOR_HANDLE   target_descriptors[d3d12_num_frames];
+    IDXGISwapChain4*                swapchain{};
+    bool                            tearing_supported{};
+    DXGI_FORMAT                     swapchain_format{};
+    ID3D12DescriptorHeap*           rtv_descriptor_heap{};
+    u32                             rtv_descriptor_size{};
+    ID3D12Resource*                 back_buffers[d3d12_num_frames]{};
+    CD3DX12_CPU_DESCRIPTOR_HANDLE   target_descriptors[d3d12_num_frames]{};
 };
 
 
@@ -162,28 +162,87 @@ void d3d12_device_init() {
     spdlog::info("D3D12Device initialized successfully");
 }
 
+bool d3d12_is_tearing_supported() {
+    IDXGIFactory4* factory;
+    UINT create_factory_flags = 0;
+#if defined(_DEBUG)
+    create_factory_flags = DXGI_CREATE_FACTORY_DEBUG;
+#endif
+    throw_if_failed(CreateDXGIFactory2(create_factory_flags, IID_PPV_ARGS(&factory)));
+
+    bool allow_tearing = false;
+    IDXGIFactory5* factory5;
+    factory->QueryInterface(IID_PPV_ARGS(&factory5));
+    if (factory5) {
+        if (FAILED(factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing)))) {
+            allow_tearing = false;
+        }
+        factory5->Release();
+    }
+
+    factory->Release();
+    return allow_tearing;
+}
+
 GPUSwapchain d3d12_create_swapchain(const SwapChainCreation& swapchain_creation, Window* window) {
-    D3D12Swapchain* d3d12Swapchain = new D3D12Swapchain;
+    D3D12Swapchain* d3d12_swapchain = new D3D12Swapchain{
+        .tearing_supported = d3d12_is_tearing_supported(),
+        .swapchain_format = DXGI_FORMAT_R8G8B8A8_UNORM
+    };
 
-    platform_get_internal_handler(window);
+    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
+    descriptorHeapDesc.NumDescriptors = d3d12_num_frames;
+    descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    descriptorHeapDesc.NodeMask = 1;
+    throw_if_failed(d3d12_content.device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&d3d12_swapchain->rtv_descriptor_heap)));
+    d3d12_swapchain->rtv_descriptor_size = d3d12_content.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
+    HWND hwnd = (HWND)platform_get_internal_handler(window);
+    UVec2 size = platform_window_get_size(window);
 
-    // DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-    // swapChainDesc.Width = m_Window->GetWidth();
-    // swapChainDesc.Height = m_Window->GetHeight();
-    // swapChainDesc.Format = m_SwapchainFormat;
-    // swapChainDesc.Stereo = FALSE;
-    // swapChainDesc.SampleDesc = {1, 0};
-    // swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    // swapChainDesc.BufferCount = g_NumFrames;
-    // swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-    // swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    // swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-    // swapChainDesc.Flags = m_TearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+    DXGI_SWAP_CHAIN_DESC1 swapchain_desc = {};
+    swapchain_desc.Width = size.x;
+    swapchain_desc.Height = size.y;
+    swapchain_desc.Format = d3d12_swapchain->swapchain_format;
+    swapchain_desc.Stereo = FALSE;
+    swapchain_desc.SampleDesc = {1, 0};
+    swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapchain_desc.BufferCount = d3d12_num_frames;
+    swapchain_desc.Scaling = DXGI_SCALING_STRETCH;
+    swapchain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swapchain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+    swapchain_desc.Flags = d3d12_swapchain->tearing_supported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
+    IDXGIFactory4* factory;
+    UINT create_factory_flags = 0;
+#if defined(_DEBUG)
+    create_factory_flags = DXGI_CREATE_FACTORY_DEBUG;
+#endif
+    throw_if_failed(CreateDXGIFactory2(create_factory_flags, IID_PPV_ARGS(&factory)));
 
+    IDXGISwapChain1* swapchain1;
+    throw_if_failed(factory->CreateSwapChainForHwnd(d3d12_content.command_queue, hwnd, &swapchain_desc, nullptr, nullptr, &swapchain1));
 
-    return {d3d12Swapchain};
+    throw_if_failed(factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
+    throw_if_failed(swapchain1->QueryInterface(IID_PPV_ARGS(&d3d12_swapchain->swapchain)));
+
+    i32 rtv_descriptor_size = d3d12_content.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(d3d12_swapchain->rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+
+    for (int i = 0; i < d3d12_num_frames; ++i) {
+        ID3D12Resource* back_buffer;
+        throw_if_failed(d3d12_swapchain->swapchain->GetBuffer(i, IID_PPV_ARGS(&back_buffer)));
+
+        d3d12_content.device->CreateRenderTargetView(back_buffer, nullptr, rtvHandle);
+        d3d12_swapchain->back_buffers[i] = back_buffer;
+        d3d12_swapchain->target_descriptors[i] = rtvHandle;
+        rtvHandle.Offset(rtv_descriptor_size);
+    }
+
+    factory->Release();
+
+    return {d3d12_swapchain};
 }
 
 

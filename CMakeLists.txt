@@ -17,3 +17,4 @@ target_link_libraries(sandbox PRIVATE D3D12Libs)
 target_link_libraries(sandbox PRIVATE d3d12 dxgi dxguid)
 
 target_include_directories(sandbox PUBLIC src)
+target_include_directories(sandbox PUBLIC thirdparty/glm)

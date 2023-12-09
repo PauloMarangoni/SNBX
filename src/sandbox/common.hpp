@@ -2,9 +2,9 @@
 
 #include <spdlog/spdlog.h>
 #include <string>
-#include <string_view>
 #include <vector>
 #include <unordered_map>
+#include <glm/glm.hpp>
 
 
 #if defined(_DEBUG)
@@ -18,15 +18,26 @@
 #  define SNBX_ASSERT(condition, message) assert(condition && message)
 #endif
 
+#if _WIN64
+#define SNBX_API __declspec(dllexport)
+#define SNBX_WIN 1
+#endif
 
 using StringView = std::string_view;
 using String = std::string;
 
 template<typename T>
-using Vector = std::vector<T>;
+using Vec = std::vector<T>;
 
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;
+
+using Vec2 = glm::vec2;
+using UVec2 = glm::uvec2;
+using Vec3 = glm::vec3;
+using Vec4 = glm::vec4;
+using Quat = glm::quat;
+using Mat4x4 = glm::mat4x4;
 
 
 typedef unsigned char       u8;
