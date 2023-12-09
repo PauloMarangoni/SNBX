@@ -39,6 +39,10 @@ bool platform_window_request_close(Window *window) {
     return glfwWindowShouldClose(window->glfwWindow);
 }
 
+void* platform_get_internal_handler(Window* window) {
+    //TODO
+}
+
 void platform_destroy_window(Window *window) {
     glfwDestroyWindow(window->glfwWindow);
     delete window;

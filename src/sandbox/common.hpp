@@ -6,6 +6,19 @@
 #include <vector>
 #include <unordered_map>
 
+
+#if defined(_DEBUG)
+#define SNBX_DEBUG
+#endif
+
+#ifdef NDEBUG
+#  define SNBX_ASSERT(condition, message) ((void)0)
+#else
+#  include <cassert>
+#  define SNBX_ASSERT(condition, message) assert(condition && message)
+#endif
+
+
 using StringView = std::string_view;
 using String = std::string;
 
