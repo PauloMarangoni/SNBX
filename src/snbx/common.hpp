@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 #include <limits>
+#include <array>
 
 
 #if defined(_DEBUG)
@@ -37,6 +38,9 @@ using Vec = std::vector<T>;
 template<typename T>
 using Span = std::span<T>;
 
+template<typename T, std::size_t N>
+using Array = std::array<T, N>;
+
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;
 
@@ -49,6 +53,7 @@ using Mat4x4 = glm::mat4x4;
 
 #define U32_MAX std::numeric_limits<u32>::max()
 
+typedef decltype(sizeof(bool)) usize;
 
 typedef unsigned char       u8;
 typedef unsigned short      u16;

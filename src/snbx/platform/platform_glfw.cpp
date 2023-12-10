@@ -53,7 +53,7 @@ void* platform_get_internal_handler(Window* window) {
     SNBX_ASSERT(false, "Not implemented");
 }
 
-inline UVec2 platform_window_get_size(Window* window) {
+UVec2 platform_window_get_size(Window* window) {
     i32 width, height;
     glfwGetWindowSize(window->glfwWindow, &width, &height);
     return {width, height};

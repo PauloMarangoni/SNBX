@@ -1,8 +1,47 @@
 #include "snbx/device/gpu_device_api.hpp"
 
 #include "volk.h"
-#include "vk_mem_alloc.h"
+
 #include "vulkan_platform.hpp"
+#include "snbx/platform/platform.hpp"
+
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#define VMA_IMPLEMENTATION
+
+#include "vk_mem_alloc.h"
+#include "snbx/platform/platform.hpp"
+
+constexpr u32 VK_FRAMES_IN_FLIGHT = 2;
+
+struct SwapChainSupportDetails {
+    VkSurfaceCapabilitiesKHR capabilities{};
+    Vec<VkSurfaceFormatKHR> formats{};
+    Vec<VkPresentModeKHR> present_modes{};
+};
+
+struct VulkanSwapchain {
+    const SwapchainCreation swapchain_creation{};
+
+    VkSurfaceKHR            surface_KHR{};
+    VkSwapchainKHR          swapchain_KHR{};
+    VkExtent2D              extent{};
+    VkFormat                format{};
+
+    VkRenderPass            render_pass{};
+    Vec<VkFramebuffer>      framebuffers{};
+    Vec<VkImage>            images{};
+    Vec<VkImageView>        image_views{};
+    Vec<VkClearValue>       clear_values{};
+
+    u32                     image_index{};
+
+    Array<VkSemaphore, VK_FRAMES_IN_FLIGHT> image_available_semaphores{};
+    Window*                     window{};
+};
+
+struct VulkanCommands {
+    VkCommandBuffer vk_command_buffer{};
+};
 
 struct VulkanContext {
     VkInstance  instance = nullptr;
@@ -32,6 +71,14 @@ struct VulkanContext {
     bool        enable_validation_layers      = true;
     const char* validation_layers[1]         = {"VK_LAYER_KHRONOS_validation"};
     bool        validation_layers_available   = false;
+
+
+    //sync
+    Array<VkFence, VK_FRAMES_IN_FLIGHT>             in_flight_fences{};
+    Array<VkSemaphore, VK_FRAMES_IN_FLIGHT>         render_finished_semaphores{};
+    Array<VulkanCommands, VK_FRAMES_IN_FLIGHT>      commands{};
+    u32                                             current_frame = 0;
+
 } context;
 
 #define SNBX_CHECK_RESULT(func) result = func; \
@@ -141,6 +188,53 @@ bool vk_query_device_extensions(const Span<VkExtensionProperties>& extensions, c
         }
     }
     return false;
+}
+
+SwapChainSupportDetails vk_query_swapchain_support(VkPhysicalDevice device, VkSurfaceKHR surface) {
+    SwapChainSupportDetails details;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+    u32 format_count{};
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, nullptr);
+    if (format_count != 0) {
+        details.formats.resize(format_count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats.data());
+    }
+    u32 present_mode_count{};
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, nullptr);
+    if (present_mode_count != 0) {
+        details.present_modes.resize(present_mode_count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.present_modes.data());
+    }
+    return details;
+}
+
+VkSurfaceFormatKHR vk_choose_swap_surface_format(const SwapChainSupportDetails& support_details, VkSurfaceFormatKHR desired_format) {
+    for (const auto& availableFormat: support_details.formats) {
+        if (availableFormat.format == desired_format.format && availableFormat.colorSpace == desired_format.colorSpace) {
+            return availableFormat;
+        }
+    }
+    return support_details.formats[0];
+}
+
+VkPresentModeKHR vk_choose_swap_present_mode(const SwapChainSupportDetails& support_details, VkPresentModeKHR desired_present_mode) {
+    for (const auto& availablePresentMode: support_details.present_modes) {
+        if (availablePresentMode == desired_present_mode) {
+            return availablePresentMode;
+        }
+    }
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D vk_choose_swap_extent(const SwapChainSupportDetails& support_details, UVec2 extent) {
+    if (support_details.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+        return support_details.capabilities.currentExtent;
+    } else {
+        VkExtent2D actual_extent = {extent.x, extent.y};
+        actual_extent.width = std::clamp(actual_extent.width, support_details.capabilities.minImageExtent.width, support_details.capabilities.maxImageExtent.width);
+        actual_extent.height = std::clamp(actual_extent.height, support_details.capabilities.minImageExtent.height, support_details.capabilities.maxImageExtent.height);
+        return actual_extent;
+    }
 }
 
 GPUResult vk_create_instance() {
@@ -491,6 +585,77 @@ GPUResult vk_init() {
     vk_update_required_queue_families();
     SNBX_CHECK_RESULT(vk_create_logical_device());
 
+    VmaVulkanFunctions vma_vulkan_functions{};
+    vma_vulkan_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vma_vulkan_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
+    VmaAllocatorCreateInfo vma_allocator_create_info = {};
+    vma_allocator_create_info.physicalDevice = context.physical_device;
+    vma_allocator_create_info.device = context.device;
+    vma_allocator_create_info.instance = context.instance;
+    vma_allocator_create_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    vma_allocator_create_info.pVulkanFunctions = &vma_vulkan_functions;
+    vmaCreateAllocator(&vma_allocator_create_info, &context.allocator);
+
+    VkCommandPoolCreateInfo command_pool_info = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    command_pool_info.queueFamilyIndex = context.graphics_family;
+    vkCreateCommandPool(context.device, &command_pool_info, nullptr, &context.command_pool);
+
+
+    VkCommandBufferAllocateInfo temp_alloc_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    temp_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    temp_alloc_info.commandPool = context.command_pool;
+    temp_alloc_info.commandBufferCount = 1;
+
+    // VulkanCommands* vulkanCommands = new VulkanCommands{};
+    // vkAllocateCommandBuffers(context.device, &temp_alloc_info, &vulkanCommands->commandBuffer);
+    // vkGetDeviceQueue(context.device, context.graphicsFamily, 0, &vulkanCommands->queue);
+    // context.singleTimeCommands.handler = vulkanCommands;
+
+    VkDescriptorPoolSize sizes[4] = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 500},
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 500},
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 500},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 500}
+    };
+
+    VkDescriptorPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.poolSizeCount = 4;
+    pool_info.pPoolSizes = sizes;
+    pool_info.maxSets = 500;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+
+    if (context.device_info.bindless_supported) {
+        pool_info.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
+    }
+
+    vkCreateDescriptorPool(context.device, &pool_info, nullptr, &context.descriptor_pool);
+    vkGetDeviceQueue(context.device, context.graphics_family, 0, &context.graphics_queue);
+    vkGetDeviceQueue(context.device, context.present_family, 0, &context.present_queue);
+
+    VkSemaphoreCreateInfo semaphore_info{};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fence_info{};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkCommandBufferAllocateInfo alloc_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandPool = context.command_pool;
+    alloc_info.commandBufferCount = 1;
+
+    for (int i = 0; i < VK_FRAMES_IN_FLIGHT; ++i) {
+        if (vkCreateSemaphore(context.device, &semaphore_info, nullptr, &context.render_finished_semaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(context.device, &fence_info, nullptr, &context.in_flight_fences[i]) != VK_SUCCESS ||
+            vkAllocateCommandBuffers(context.device, &alloc_info, &context.commands[i].vk_command_buffer) != VK_SUCCESS) {
+            spdlog::error("Failed to create frame");
+            return GPUResult::NotSupported;
+        }
+    }
+
     spdlog::info("Vulkan API {}.{}.{} Device: {} ",
                  VK_VERSION_MAJOR(context.gpu_properties.apiVersion),
                  VK_VERSION_MINOR(context.gpu_properties.apiVersion),
@@ -500,15 +665,184 @@ GPUResult vk_init() {
     return result;
 }
 
+GPUSwapchain vk_create_swapchain(VulkanSwapchain* vulkan_swapchain) {
+    VkResult res = platform_create_window_surface(vulkan_swapchain->window, context.instance, &vulkan_swapchain->surface_KHR);
+
+    if (res != VK_SUCCESS) {
+        spdlog::error("swapchain surface cannot be created");
+        return {};
+    }
+
+    SwapChainSupportDetails details = vk_query_swapchain_support(context.physical_device, vulkan_swapchain->surface_KHR);
+    VkSurfaceFormatKHR format = vk_choose_swap_surface_format(details, {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR});
+    VkPresentModeKHR present_mode = vk_choose_swap_present_mode(details, vulkan_swapchain->swapchain_creation.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR);
+
+    UVec2 win_size = platform_window_get_size(vulkan_swapchain->window);
+
+    vulkan_swapchain->extent = vk_choose_swap_extent(details, {win_size.x, win_size.y});
+
+    u32 image_count = details.capabilities.minImageCount + 1;
+    if (details.capabilities.maxImageCount > 0 && image_count > details.capabilities.maxImageCount) {
+        image_count = details.capabilities.maxImageCount;
+    }
+
+    VkBool32 present_support = false;
+    vkGetPhysicalDeviceSurfaceSupportKHR(context.physical_device,
+                                         context.present_family,
+                                         vulkan_swapchain->surface_KHR,
+                                         &present_support);
+
+
+    VkSwapchainCreateInfoKHR create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    create_info.surface = vulkan_swapchain->surface_KHR;
+    create_info.minImageCount = image_count;
+    create_info.imageFormat = format.format;
+    create_info.imageColorSpace = format.colorSpace;
+    create_info.imageExtent = vulkan_swapchain->extent;
+    create_info.imageArrayLayers = 1;
+    create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    u32 queue_family_indices[] = {context.graphics_family, context.present_family};
+    if (context.graphics_family != context.present_family) {
+        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        create_info.queueFamilyIndexCount = 2;
+        create_info.pQueueFamilyIndices = queue_family_indices;
+    } else {
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.queueFamilyIndexCount = 0;
+        create_info.pQueueFamilyIndices = nullptr;
+    }
+
+    create_info.preTransform = details.capabilities.currentTransform;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode = present_mode;
+    create_info.clipped = VK_TRUE;
+    create_info.oldSwapchain = VK_NULL_HANDLE;
+
+    vkCreateSwapchainKHR(context.device, &create_info, nullptr, &vulkan_swapchain->swapchain_KHR);
+    vkGetSwapchainImagesKHR(context.device, vulkan_swapchain->swapchain_KHR, &image_count, nullptr);
+
+    vulkan_swapchain->format = format.format;
+
+    vulkan_swapchain->images.resize(image_count);
+    vulkan_swapchain->image_views.resize(image_count);
+    vulkan_swapchain->framebuffers.resize(image_count);
+
+    vkGetSwapchainImagesKHR(context.device, vulkan_swapchain->swapchain_KHR, &image_count, vulkan_swapchain->images.data());
+
+    for (size_t i = 0; i < image_count; i++) {
+        VkImageViewCreateInfo imageViewCreateInfo{};
+        imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        imageViewCreateInfo.image = vulkan_swapchain->images[i];
+        imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        imageViewCreateInfo.format = format.format;
+        imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+        imageViewCreateInfo.subresourceRange.levelCount = 1;
+        imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+        imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+        vkCreateImageView(context.device, &imageViewCreateInfo, nullptr, &vulkan_swapchain->image_views[i]);
+    }
+
+    VkAttachmentDescription attachment_description{};
+    VkAttachmentReference color_attachment_reference{};
+
+    attachment_description.format = format.format;
+    attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
+    attachment_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachment_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachment_description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    color_attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    color_attachment_reference.attachment = 0;
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &color_attachment_reference;
+
+    VkRenderPassCreateInfo render_pass_info = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+    render_pass_info.attachmentCount = 1;
+    render_pass_info.pAttachments = &attachment_description;
+    render_pass_info.subpassCount = 1;
+    render_pass_info.pSubpasses = &subpass;
+    render_pass_info.dependencyCount = 0;
+    vkCreateRenderPass(context.device, &render_pass_info, nullptr, &vulkan_swapchain->render_pass);
+
+    vulkan_swapchain->clear_values.resize(render_pass_info.attachmentCount);
+
+    for (usize i = 0; i < image_count; i++) {
+        VkFramebufferCreateInfo framebufferCreateInfo{};
+        framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferCreateInfo.renderPass = vulkan_swapchain->render_pass;
+        framebufferCreateInfo.width = vulkan_swapchain->extent.width;
+        framebufferCreateInfo.height = vulkan_swapchain->extent.height;
+        framebufferCreateInfo.layers = 1u;
+
+        framebufferCreateInfo.attachmentCount = 1;
+        framebufferCreateInfo.pAttachments = &vulkan_swapchain->image_views[i];
+
+        vkCreateFramebuffer(context.device, &framebufferCreateInfo, nullptr, &vulkan_swapchain->framebuffers[i]);
+    }
+
+    VkSemaphoreCreateInfo semaphore_info{};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    for (int i = 0; i < VK_FRAMES_IN_FLIGHT; ++i) {
+        vkCreateSemaphore(context.device, &semaphore_info, nullptr, &vulkan_swapchain->image_available_semaphores[i]);
+    }
+
+    return {vulkan_swapchain};
+}
+
 GPUSwapchain vk_create_swapchain(const SwapchainCreation& swapchain_creation, Window* window) {
-    return {};
+    VulkanSwapchain* vulkanSwapchain = new VulkanSwapchain{
+        .swapchain_creation = swapchain_creation,
+        .window = window
+    };
+    return {vk_create_swapchain(vulkanSwapchain)};
+}
+
+void vk_destroy_swapchain(VulkanSwapchain* vulkan_swapchain) {
+    for (int i = 0; i < vulkan_swapchain->images.size(); ++i) {
+        vkDestroyFramebuffer(context.device, vulkan_swapchain->framebuffers[i], nullptr);
+        vkDestroyImageView(context.device, vulkan_swapchain->image_views[i], nullptr);
+    }
+
+    vkDestroyRenderPass(context.device, vulkan_swapchain->render_pass, nullptr);
+    vkDestroySwapchainKHR(context.device, vulkan_swapchain->swapchain_KHR, nullptr);
+    vkDestroySurfaceKHR(context.instance, vulkan_swapchain->surface_KHR, nullptr);
+
+    for (int i = 0; i < VK_FRAMES_IN_FLIGHT; ++i) {
+        vkDestroySemaphore(context.device, vulkan_swapchain->image_available_semaphores[i], nullptr);
+    }
 }
 
 void vk_destroy_swapchain(const GPUSwapchain& swapchain) {
-
+    VulkanSwapchain* vulkanSwapchain = static_cast<VulkanSwapchain*>(swapchain.handler);
+    vk_destroy_swapchain(vulkanSwapchain);
+    delete vulkanSwapchain;
 }
 
 void vk_shutdown() {
+
+    for (size_t i = 0; i < VK_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(context.device, context.render_finished_semaphores[i], nullptr);
+        vkDestroyFence(context.device, context.in_flight_fences[i], nullptr);
+    }
+
+    vkDestroyDescriptorPool(context.device, context.descriptor_pool, nullptr);
+    vkDestroyCommandPool(context.device, context.command_pool, nullptr);
+    vmaDestroyAllocator(context.allocator);
+
     vkDestroyDevice(context.device, nullptr);
     destroy_debug_utils_messenger_ext(context.instance, context.debug_messenger, nullptr);
     vkDestroyInstance(context.instance, nullptr);
