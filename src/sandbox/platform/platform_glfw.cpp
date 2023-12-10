@@ -1,11 +1,11 @@
 #include "platform.hpp"
-#include "glfw/glfw3.h"
+#include "GLFW/glfw3.h"
 
 #if SNBX_WIN
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
+#include "GLFW/glfw3native.h"
 
-#include "glfw/glfw3native.h"
 
 struct Window {
     GLFWwindow *glfwWindow;
@@ -47,7 +47,7 @@ bool platform_window_request_close(Window *window) {
 void* platform_get_internal_handler(Window* window) {
 #if SNBX_WIN
     return glfwGetWin32Window(window->glfwWindow);
-#endif;
+#endif
     SNBX_ASSERT(false, "Not implemented");
 }
 

@@ -21,6 +21,9 @@
 #if _WIN64
 #define SNBX_API __declspec(dllexport)
 #define SNBX_WIN 1
+#elif __linux__
+#define SNBX_API
+#define SNBX_LINUX 1
 #endif
 
 using StringView = std::string_view;

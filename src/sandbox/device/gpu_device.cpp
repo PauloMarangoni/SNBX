@@ -4,9 +4,11 @@
 GPUDeviceAPI device_api{};
 
 void d3d12_device_register(GPUDeviceAPI& gpu_device_api);
+void vulkan_device_register(GPUDeviceAPI& gpu_device_api);
 
 void gpu_device_init() {
-    d3d12_device_register(device_api);
+   // d3d12_device_register(device_api);
+    vulkan_device_register(device_api);
     device_api.init();
 }
 

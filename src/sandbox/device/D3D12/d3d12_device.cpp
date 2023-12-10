@@ -1,6 +1,8 @@
 #include "sandbox/common.hpp"
 #include "sandbox/device/gpu_device_api.hpp"
 
+#ifdef SNBX_WIN
+
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>
@@ -272,3 +274,10 @@ void d3d12_device_register(GPUDeviceAPI& gpu_device_api) {
     gpu_device_api.destroy_swapchain = d3d12_destroy_swapchain;
     gpu_device_api.shutdown = d3d12_shutdown;
 }
+#else
+
+void d3d12_device_register(GPUDeviceAPI& gpu_device_api) {
+    SNBX_ASSERT(false, "DX12 is only available on windows");
+}
+
+#endif
