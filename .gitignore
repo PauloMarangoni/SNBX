@@ -668,7 +668,6 @@ __pycache__
 *.class
 
 # Generated files
-bin/
 gen/
 
 # Gradle files

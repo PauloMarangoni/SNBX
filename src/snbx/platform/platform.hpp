@@ -17,3 +17,5 @@ SNBX_API bool    platform_window_request_close(Window* window);
 SNBX_API UVec2   platform_window_get_size(Window* window);
 SNBX_API void    platform_destroy_window(Window* window);
 SNBX_API void	 platform_wait_events();
+SNBX_API void*   platform_load_shared_lib(const char* path);
+SNBX_API void*   platform_get_proc_address(void* lib, const char* func_name);

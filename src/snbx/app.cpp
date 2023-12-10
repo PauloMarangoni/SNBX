@@ -1,5 +1,6 @@
 #include "app.hpp"
 #include "common.hpp"
+#include "shader/shader_compiler.hpp"
 #include "snbx/device/gpu_device.hpp"
 #include "snbx/platform/platform.hpp"
 #include "snbx/assets/asset_server.hpp"
@@ -12,6 +13,7 @@ void app_init() {
     spdlog::info("SNBX initialized");
 
     platform_init();
+    shader_compiler_init();
     asset_server_init();
     gpu_device_init();
 

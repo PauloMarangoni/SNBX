@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include <array>
+#include <filesystem>
 
 
 #if defined(_DEBUG)
@@ -43,6 +44,8 @@ using Array = std::array<T, N>;
 
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;
+
+using Path = std::filesystem::path;
 
 using Vec2 = glm::vec2;
 using UVec2 = glm::uvec2;

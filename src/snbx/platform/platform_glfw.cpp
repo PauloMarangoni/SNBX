@@ -1,5 +1,5 @@
 #include "platform.hpp"
-#include "snbx/device/Vulkan/vulkan_platform.hpp"
+#include "snbx/device/vulkan/vulkan_platform.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #define VK_NO_PROTOTYPES
