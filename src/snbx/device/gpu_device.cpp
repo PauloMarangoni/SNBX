@@ -16,8 +16,36 @@ GPUSwapchain gpu_device_create_swapchain(const SwapchainCreation& swapchain_crea
     return device_api.create_swapchain(swapchain_creation, window);
 }
 
+void gpu_device_begin_render_pass(const GPUCommands& cmd, const BeginRenderPassInfo& begin_render_pass_info) {
+    device_api.begin_render_pass(cmd, begin_render_pass_info);
+}
+
+void gpu_device_end_render_pass(const GPUCommands& cmd) {
+    device_api.end_render_pass(cmd);
+}
+
+void gpu_device_set_viewport(const GPUCommands& cmd, const ViewportInfo& viewport_info) {
+    device_api.set_viewport(cmd, viewport_info);
+}
+
+void gpu_device_set_scissor(const GPUCommands& cmd, const Rect& rect) {
+    device_api.set_scissor(cmd, rect);
+}
+
+GPUCommands gpu_device_begin_frame() {
+    return device_api.begin_frame();
+}
+
+void gpu_device_end_frame(const GPUSwapchain& swapchain) {
+    device_api.end_frame(swapchain);
+}
+
 void gpu_device_destroy_swapchain(const GPUSwapchain& swapchain) {
     device_api.destroy_swapchain(swapchain);
+}
+
+void gpu_device_wait() {
+    device_api.wait();
 }
 
 void gpu_device_shutdown() {

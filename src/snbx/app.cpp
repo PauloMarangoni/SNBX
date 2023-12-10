@@ -31,10 +31,40 @@ bool app_update() {
         running = false;
         return false;
     }
+
+    UVec2 swapchain_extent = platform_window_get_size(window);
+
+    GPUCommands cmd = gpu_device_begin_frame();
+
+    Vec4 clear_value = Vec4(0, 0, 0, 1);
+
+    gpu_device_begin_render_pass(cmd, BeginRenderPassInfo{
+        .extent = swapchain_extent,
+        .swapchain = swapchain,
+        .clear_values = {&clear_value, 1}
+    });
+
+    ViewportInfo viewport_info{};
+    viewport_info.x = 0.;
+    viewport_info.y = 0.;
+    viewport_info.width = (f32) swapchain_extent.x;
+    viewport_info.height = (f32) swapchain_extent.y;
+    viewport_info.max_depth = 0.;
+    viewport_info.min_depth = 1.;
+    gpu_device_set_viewport(cmd, viewport_info);
+
+    Rect rect = {0, 0, swapchain_extent.x, swapchain_extent.y};
+    gpu_device_set_scissor(cmd, rect);
+
+    gpu_device_end_render_pass(cmd);
+
+    gpu_device_end_frame(swapchain);
+
     return running;
 }
 
 void app_destroy() {
+    gpu_device_wait();
     gpu_device_destroy_swapchain(swapchain);
     gpu_device_shutdown();
     platform_destroy_window(window);

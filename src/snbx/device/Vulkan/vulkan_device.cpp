@@ -827,9 +827,158 @@ void vk_destroy_swapchain(VulkanSwapchain* vulkan_swapchain) {
 }
 
 void vk_destroy_swapchain(const GPUSwapchain& swapchain) {
-    VulkanSwapchain* vulkanSwapchain = static_cast<VulkanSwapchain*>(swapchain.handler);
-    vk_destroy_swapchain(vulkanSwapchain);
-    delete vulkanSwapchain;
+    VulkanSwapchain* vulkan_swapchain = static_cast<VulkanSwapchain*>(swapchain.handler);
+    vk_destroy_swapchain(vulkan_swapchain);
+    delete vulkan_swapchain;
+}
+
+void vk_recreate_swapchain(VulkanSwapchain* vulkan_swapchain) {
+    vkDeviceWaitIdle(context.device);
+    vk_destroy_swapchain(vulkan_swapchain);
+    vk_create_swapchain(vulkan_swapchain);
+}
+
+GPUCommands vk_begin_frame() {
+    vkWaitForFences(context.device, 1, &context.in_flight_fences[context.current_frame], VK_TRUE, UINT64_MAX);
+    vkResetFences(context.device, 1, &context.in_flight_fences[context.current_frame]);
+
+    VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    vkBeginCommandBuffer(context.commands[context.current_frame].vk_command_buffer, &begin_info);
+
+    return {&context.commands[context.current_frame]};
+}
+
+void vk_begin_render_pass(const GPUCommands& cmd, const BeginRenderPassInfo& begin_render_pass_info) {
+    if (begin_render_pass_info.swapchain) {
+
+        VulkanSwapchain* vulkan_swapchain = static_cast<VulkanSwapchain *>(begin_render_pass_info.swapchain.handler);
+
+        UVec2 size = platform_window_get_size(vulkan_swapchain->window);
+        if (size.x != vulkan_swapchain->extent.width || size.y != vulkan_swapchain->extent.height) {
+            while (size.x == 0 || size.y == 0) {
+                size = platform_window_get_size(vulkan_swapchain->window);
+                platform_wait_events();
+            }
+            vk_recreate_swapchain(vulkan_swapchain);
+        }
+
+        VkResult result = vkAcquireNextImageKHR(context.device,
+                                                vulkan_swapchain->swapchain_KHR,
+                                                UINT64_MAX,
+                                                vulkan_swapchain->image_available_semaphores[context.current_frame],
+                                                VK_NULL_HANDLE,
+                                                &vulkan_swapchain->image_index);
+
+        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            SNBX_ASSERT(false, "failed to acquire swap chain image!");
+        }
+
+        VulkanCommands* vulkan_commands = static_cast<VulkanCommands *>(cmd.handler);
+
+        VkRenderPassBeginInfo render_pass_begin_info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        render_pass_begin_info.renderPass = vulkan_swapchain->render_pass;
+        render_pass_begin_info.framebuffer = vulkan_swapchain->framebuffers[vulkan_swapchain->image_index];
+        render_pass_begin_info.renderArea.offset = {0, 0};
+        render_pass_begin_info.renderArea.extent = {size.x, size.y};
+
+        for (int i = 0; i < begin_render_pass_info.clear_values.size(); ++i) {
+            const Vec4& c = begin_render_pass_info.clear_values[i];
+            vulkan_swapchain->clear_values[i].color = {c.r, c.g, c.b, c.a};
+        }
+
+        render_pass_begin_info.clearValueCount = vulkan_swapchain->clear_values.size();
+        render_pass_begin_info.pClearValues = vulkan_swapchain->clear_values.data();
+        vkCmdBeginRenderPass(vulkan_commands->vk_command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+    } else if (begin_render_pass_info.render_pass) {
+        // VulkanCommands* vulkanCommands = static_cast<VulkanCommands*>(gpuCommands.handler);
+        // VulkanRenderPass* vulkanRenderPass = static_cast<VulkanRenderPass*>(renderPassInfo.renderPass.handler);
+        //
+        // VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        // renderPassBeginInfo.renderPass = vulkanRenderPass->renderPass;
+        // renderPassBeginInfo.framebuffer = vulkanRenderPass->framebuffer;
+        // renderPassBeginInfo.renderArea.offset = {0, 0};
+        // renderPassBeginInfo.renderArea.extent = {renderPassInfo.extent.width, renderPassInfo.extent.height};
+        //
+        // for (int i = 0; i < renderPassInfo.clearValues.Size(); ++i)
+        // {
+        //  auto& c = renderPassInfo.clearValues[i];
+        //  if (!c.depth)
+        //  {
+        //   vulkanRenderPass->clearValues[i].color = {c.color.r, c.color.g, c.color.b, c.color.w};
+        //  }
+        //  else
+        //  {
+        //   vulkanRenderPass->clearValues[i].depthStencil = {c.depthStencil.x, static_cast<u32>(c.depthStencil.y)};
+        //  }
+        // }
+        //
+        // renderPassBeginInfo.clearValueCount = vulkanRenderPass->clearValues.Size();
+        // renderPassBeginInfo.pClearValues = vulkanRenderPass->clearValues.Data();
+        //
+        // vkCmdBeginRenderPass(vulkanCommands->commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    }
+}
+
+void vk_end_render_pass(const GPUCommands& cmd) {
+    vkCmdEndRenderPass(static_cast<VulkanCommands*>(cmd.handler)->vk_command_buffer);
+}
+
+void vk_set_viewport(const GPUCommands& cmd, const ViewportInfo& viewport_info) {
+    VkViewport vk_viewport;
+    vk_viewport.x = viewport_info.x;
+    vk_viewport.y = viewport_info.y;
+    vk_viewport.width = viewport_info.width;
+    vk_viewport.height = viewport_info.height;
+    vk_viewport.minDepth = viewport_info.min_depth;
+    vk_viewport.maxDepth = viewport_info.max_depth;
+    vkCmdSetViewport(static_cast<VulkanCommands*>(cmd.handler)->vk_command_buffer, 0, 1, &vk_viewport);
+}
+
+void vk_set_scissor(const GPUCommands& cmd, const Rect& rect) {
+    VkRect2D rect2D;
+    rect2D.offset.x = static_cast<i32>(rect.x);
+    rect2D.offset.y = static_cast<i32>(rect.y);
+    rect2D.extent.width = static_cast<u32>(rect.width);
+    rect2D.extent.height = static_cast<u32>(rect.height);
+    vkCmdSetScissor(static_cast<VulkanCommands*>(cmd.handler)->vk_command_buffer, 0, 1, &rect2D);
+}
+
+void vk_end_frame(const GPUSwapchain& swapchain) {
+    VulkanSwapchain* vulkan_swapchain = static_cast<VulkanSwapchain *>(swapchain.handler);
+
+    vkEndCommandBuffer(context.commands[context.current_frame].vk_command_buffer);
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+    VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = &vulkan_swapchain->image_available_semaphores[context.current_frame];
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = &context.render_finished_semaphores[context.current_frame];
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &context.commands[context.current_frame].vk_command_buffer;
+    submit_info.pWaitDstStageMask = wait_stages;
+
+    if (vkQueueSubmit(context.graphics_queue, 1, &submit_info, context.in_flight_fences[context.current_frame]) != VK_SUCCESS) {
+        SNBX_ASSERT(false, "Failed to execute vkQueueSubmit");
+    }
+
+    VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = &context.render_finished_semaphores[context.current_frame];
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = &vulkan_swapchain->swapchain_KHR;
+    present_info.pImageIndices = &vulkan_swapchain->image_index;
+
+    if (vkQueuePresentKHR(context.present_queue, &present_info) != VK_SUCCESS) {
+        SNBX_ASSERT(false, "Failed to execute vkQueuePresentKHR");
+    }
+
+    context.current_frame = (context.current_frame + 1) % VK_FRAMES_IN_FLIGHT;
+}
+
+void vk_wait() {
+    vkDeviceWaitIdle(context.device);
 }
 
 void vk_shutdown() {
@@ -852,5 +1001,12 @@ void vulkan_device_register(GPUDeviceAPI& gpu_device_api) {
     gpu_device_api.init = vk_init;
     gpu_device_api.shutdown = vk_shutdown;
     gpu_device_api.create_swapchain = vk_create_swapchain;
+    gpu_device_api.begin_render_pass = vk_begin_render_pass;
+    gpu_device_api.end_render_pass = vk_end_render_pass;
+    gpu_device_api.set_viewport = vk_set_viewport;
+    gpu_device_api.set_scissor = vk_set_scissor;
+    gpu_device_api.begin_frame = vk_begin_frame;
+    gpu_device_api.end_frame = vk_end_frame;
+    gpu_device_api.wait = vk_wait;
     gpu_device_api.destroy_swapchain = vk_destroy_swapchain;
 }

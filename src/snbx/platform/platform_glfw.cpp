@@ -59,6 +59,10 @@ UVec2 platform_window_get_size(Window* window) {
     return {width, height};
 }
 
+void platform_wait_events() {
+    glfwWaitEvents();
+}
+
 void platform_init_vk() {
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
