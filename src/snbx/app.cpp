@@ -20,7 +20,7 @@ void app_init() {
             .maximized = true
     });
 
-    swapchain = gpu_device_create_swapchain(SwapChainCreation{
+    swapchain = gpu_device_create_swapchain(SwapchainCreation{
         .vsync = true
     }, window);
 }

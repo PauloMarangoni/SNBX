@@ -1,11 +1,15 @@
 #include "platform.hpp"
+#include "snbx/device/Vulkan/vulkan_platform.hpp"
+
+#define GLFW_INCLUDE_VULKAN
+#define VK_NO_PROTOTYPES
+
 #include "GLFW/glfw3.h"
 
 #if SNBX_WIN
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
 #include "GLFW/glfw3native.h"
-#include "snbx/device/Vulkan/vulkan_platform.hpp"
 
 
 struct Window {
@@ -61,15 +65,17 @@ void platform_init_vk() {
 }
 
 Span<const char *> platform_get_required_instance_extensions() {
-    return {};
+    u32 count{};
+    const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+    return {extensions, extensions + count};
 }
 
 VkResult platform_create_window_surface(const Window *window, VkInstance instance, VkSurfaceKHR *surface) {
-    return {};
+    return glfwCreateWindowSurface(instance, window->glfwWindow, nullptr, surface);
 }
 
 bool platform_get_physical_device_presentation_support(VkInstance instance, VkPhysicalDevice device, u32 queue_family) {
-    return false;
+    return glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family) == GLFW_TRUE;
 }
 
 

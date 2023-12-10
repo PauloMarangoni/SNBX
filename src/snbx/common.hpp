@@ -6,6 +6,7 @@
 #include <span>
 #include <unordered_map>
 #include <glm/glm.hpp>
+#include <limits>
 
 
 #if defined(_DEBUG)
@@ -45,6 +46,8 @@ using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
 using Quat = glm::quat;
 using Mat4x4 = glm::mat4x4;
+
+#define U32_MAX std::numeric_limits<u32>::max()
 
 
 typedef unsigned char       u8;
