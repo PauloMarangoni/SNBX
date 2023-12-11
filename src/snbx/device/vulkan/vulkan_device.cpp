@@ -18,6 +18,20 @@ struct SwapChainSupportDetails {
     Vec<VkPresentModeKHR> present_modes{};
 };
 
+struct VulkanTexture {
+    VkImage image{};
+    VkImageView image_view{};
+    VmaAllocation allocation{};
+    TextureCreation texture_creation{};
+};
+
+struct VulkanRenderPass {
+    VkRenderPass      render_pass{};
+    VkFramebuffer     framebuffer{};
+    VkExtent2D        extent{};
+    Vec<VkClearValue> clear_values{};
+};
+
 struct VulkanSwapchain {
     const SwapchainCreation swapchain_creation{};
 
@@ -235,6 +249,115 @@ VkExtent2D vk_choose_swap_extent(const SwapChainSupportDetails& support_details,
         return actual_extent;
     }
 }
+
+VkFormat vk_cast_format(const GPUFormat& textureFormat) {
+    switch (textureFormat) {
+        case GPUFormat::R: return VK_FORMAT_R8_UNORM;
+        case GPUFormat::RG16F: return VK_FORMAT_R16G16_SFLOAT;
+        case GPUFormat::RGBA: return VK_FORMAT_R8G8B8A8_UNORM;
+        case GPUFormat::RGBA16F: return VK_FORMAT_R16G16B16A16_SFLOAT;
+        case GPUFormat::RGBA32F: return VK_FORMAT_R32G32B32A32_SFLOAT;
+        case GPUFormat::BGRA: return VK_FORMAT_B8G8R8A8_UNORM;
+        case GPUFormat::Depth: return VK_FORMAT_D32_SFLOAT; //TODO should check if format is available
+        case GPUFormat::R16F: return VK_FORMAT_R16_SFLOAT;
+        case GPUFormat::R32F: return VK_FORMAT_R32_SFLOAT;
+        case GPUFormat::RG: return VK_FORMAT_R8G8_UNORM;
+        case GPUFormat::RG32F: return VK_FORMAT_R32G32_SFLOAT;
+        case GPUFormat::RGB: return VK_FORMAT_R8G8B8_UNORM;
+        case GPUFormat::RGB16F: return VK_FORMAT_R16G16B16_SFLOAT;
+        case GPUFormat::RGB32F: return VK_FORMAT_R32G32B32_SFLOAT;
+        case GPUFormat::Undefined:
+            break;
+        default:
+            SNBX_ASSERT(false, "[VulkanDevice] VkFormat not found");
+            return VK_FORMAT_UNDEFINED;
+    }
+    return {};
+}
+
+VkImageViewType vk_cast_view_type(const ViewType& view_type) {
+    switch (view_type) {
+        case ViewType::Type1D: return VK_IMAGE_VIEW_TYPE_1D;
+        case ViewType::Type2D: return VK_IMAGE_VIEW_TYPE_2D;
+        case ViewType::Type3D: return VK_IMAGE_VIEW_TYPE_3D;
+        case ViewType::TypeCube: return VK_IMAGE_VIEW_TYPE_CUBE;
+        case ViewType::Type1DArray: return VK_IMAGE_VIEW_TYPE_1D;
+        case ViewType::Type2DArray: return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        case ViewType::TypeCubeArray: return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+        case ViewType::Undefined: break;
+    }
+    SNBX_ASSERT(false, "vulkan_utils.hpp: CastLayout not found");
+    return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+}
+
+constexpr bool vk_is_depth_format(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT
+           || format == VK_FORMAT_D32_SFLOAT
+           || format == VK_FORMAT_D24_UNORM_S8_UINT
+           || format == VK_FORMAT_D16_UNORM_S8_UINT
+           || format == VK_FORMAT_D16_UNORM;
+}
+
+VkImageUsageFlags vk_cast_render_flags(RenderFlags render_flags) {
+    VkImageUsageFlags usage{};
+    if (render_flags && RenderFlags::ShaderResource) {
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    }
+
+    if (render_flags && RenderFlags::DepthStencil) {
+        usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+
+    if (render_flags && RenderFlags::RenderPass) {
+        usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+
+    if (render_flags && RenderFlags::Storage) {
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (render_flags && RenderFlags::TransferDst) {
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+    if (render_flags && RenderFlags::TransferSrc) {
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    }
+    return usage;
+}
+
+VkImageLayout vk_cast_layout(const ResourceLayout& resource_layout, VkImageLayout default_undefined = VK_IMAGE_LAYOUT_UNDEFINED) {
+    switch (resource_layout) {
+        case ResourceLayout::Undefined: return default_undefined;
+        case ResourceLayout::General: return VK_IMAGE_LAYOUT_GENERAL;
+        case ResourceLayout::ColorAttachment: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case ResourceLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case ResourceLayout::ShaderReadOnly: return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case ResourceLayout::CopyDest: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case ResourceLayout::CopySource: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case ResourceLayout::Present: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    }
+    SNBX_ASSERT(false, "vk_cast_layout not found");
+    return VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+VkAttachmentStoreOp vk_cast_store_op(StoreOp store_op) {
+    switch (store_op) {
+        case StoreOp::Store: return VK_ATTACHMENT_STORE_OP_STORE;
+        case StoreOp::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    }
+    SNBX_ASSERT(false, "vk_cast_store_op not found");
+    return VK_ATTACHMENT_STORE_OP_MAX_ENUM;
+}
+
+VkAttachmentLoadOp vk_cast_load_op(LoadOp load_op) {
+    switch (load_op) {
+        case LoadOp::Load: return VK_ATTACHMENT_LOAD_OP_LOAD;
+        case LoadOp::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        case LoadOp::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+    SNBX_ASSERT(false, "vk_cast_load_op not found");
+    return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
+}
+
 
 GPUResult vk_create_instance() {
     VkApplicationInfo app_info{};
@@ -836,6 +959,176 @@ void vk_recreate_swapchain(VulkanSwapchain* vulkan_swapchain) {
     vk_create_swapchain(vulkan_swapchain);
 }
 
+GPUPipelineState vk_create_graphics_pipeline(const GraphicsPipelineCreation& graphics_pipeline_creation) {
+    return {};
+}
+
+GPURenderPass vk_create_render_pass(const RenderPassCreation& render_pass_creation) {
+    VulkanRenderPass* vulkan_render_pass = new VulkanRenderPass;
+
+    Vec<VkAttachmentDescription> attachment_descriptions{};
+    Vec<VkAttachmentReference> color_attachment_reference{};
+    Vec<VkImageView> image_views{};
+    VkAttachmentReference depth_reference{};
+
+    bool has_depth = false;
+    UVec3 framebuffer_size{};
+
+    vulkan_render_pass->clear_values.resize(render_pass_creation.attachments.size());
+
+    for (int i = 0; i < render_pass_creation.attachments.size(); ++i) {
+        const AttachmentCreation& attachment = render_pass_creation.attachments[i];
+
+        VulkanTexture* vulkan_texture = static_cast<VulkanTexture *>(attachment.texture.handler);
+        SNBX_ASSERT(vulkan_texture, "texture is mandatory");
+
+        image_views.emplace_back(vulkan_texture->image_view);
+
+        VkFormat format = vk_cast_format(vulkan_texture->texture_creation.format);
+        framebuffer_size = vulkan_texture->texture_creation.extent;
+        bool is_depth_format = vk_is_depth_format(format);
+
+        VkAttachmentDescription attachment_description{};
+        attachment_description.format = format;
+        attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
+
+        attachment_description.loadOp = vk_cast_load_op(attachment.load_op);
+        attachment_description.storeOp = vk_cast_store_op(attachment.store_op);
+
+        attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        attachment_description.initialLayout = vk_cast_layout(attachment.initial_layout);
+
+        if (!is_depth_format) {
+            attachment_description.finalLayout = vk_cast_layout(attachment.final_layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            VkAttachmentReference reference{};
+            reference.attachment = i;
+            reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            color_attachment_reference.emplace_back(reference);
+        } else {
+            attachment_description.finalLayout = vk_cast_layout(attachment.final_layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            depth_reference.attachment = i;
+            depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            has_depth = true;
+        }
+        attachment_descriptions.emplace_back(attachment_description);
+    }
+
+    vulkan_render_pass->extent = {framebuffer_size.x, framebuffer_size.y};
+
+    VkSubpassDescription sub_pass = {};
+    sub_pass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    sub_pass.colorAttachmentCount = color_attachment_reference.size();
+    sub_pass.pColorAttachments = color_attachment_reference.data();
+    if (has_depth) {
+        sub_pass.pDepthStencilAttachment = &depth_reference;
+    }
+
+    VkRenderPassCreateInfo render_pass_info = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+    render_pass_info.attachmentCount = attachment_descriptions.size();
+    render_pass_info.pAttachments = attachment_descriptions.data();
+    render_pass_info.subpassCount = 1;
+    render_pass_info.pSubpasses = &sub_pass;
+    render_pass_info.dependencyCount = 0;
+    vkCreateRenderPass(vk_context.device, &render_pass_info, nullptr, &vulkan_render_pass->render_pass);
+
+
+    VkFramebufferCreateInfo framebuffer_create_info{};
+    framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebuffer_create_info.renderPass = vulkan_render_pass->render_pass;
+    framebuffer_create_info.width = framebuffer_size.x;
+    framebuffer_create_info.height = framebuffer_size.y;
+    framebuffer_create_info.layers = std::max(framebuffer_size.z, 1u);
+    framebuffer_create_info.attachmentCount = image_views.size();
+    framebuffer_create_info.pAttachments = image_views.data();
+
+    vkCreateFramebuffer(vk_context.device, &framebuffer_create_info, nullptr, &vulkan_render_pass->framebuffer);
+
+    return {vulkan_render_pass};
+}
+
+GPUTexture vk_create_texture(const TextureCreation& texture_creation) {
+    VulkanTexture* vulkan_texture = new VulkanTexture;
+    vulkan_texture->texture_creation = texture_creation;
+    SNBX_ASSERT(texture_creation.extent.x != 0 && texture_creation.extent.y != 0, "image sized 0 is not allowed by vulkan");
+
+    VkImageCreateInfo image_create_info = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    image_create_info.imageType = VK_IMAGE_TYPE_2D;
+    image_create_info.format = vk_cast_format(texture_creation.format);
+
+    image_create_info.extent = {texture_creation.extent.x, texture_creation.extent.y, std::max(texture_creation.extent.z, 1u)};
+    image_create_info.mipLevels = texture_creation.mip_levels;
+    image_create_info.arrayLayers = texture_creation.array_layers;
+    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+    if (image_create_info.arrayLayers % 6 == 0) {
+        image_create_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    }
+
+    RenderFlags render_flags = texture_creation.render_flags;
+    if (render_flags == RenderFlags::None) {
+        render_flags = RenderFlags::TransferDst | RenderFlags::ShaderResource;
+    }
+    image_create_info.usage = vk_cast_render_flags(render_flags);
+
+    VmaAllocationCreateInfo alloc_info = {};
+    alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    alloc_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    vmaCreateImage(vk_context.allocator, &image_create_info, &alloc_info, &vulkan_texture->image, &vulkan_texture->allocation, nullptr);
+
+    VkImageViewCreateInfo view_create_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    view_create_info.image = vulkan_texture->image;
+    view_create_info.format = vk_cast_format(texture_creation.format);
+    view_create_info.subresourceRange.baseMipLevel = 0;
+    view_create_info.subresourceRange.baseArrayLayer = 0;
+    view_create_info.subresourceRange.levelCount = texture_creation.mip_levels;
+    view_create_info.subresourceRange.layerCount = texture_creation.array_layers;
+
+    if (image_create_info.arrayLayers % 6 == 0) {
+        view_create_info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    } else if (texture_creation.view_type != ViewType::Undefined) {
+        view_create_info.viewType = vk_cast_view_type(texture_creation.view_type);
+    } else {
+        view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    }
+
+    if (vk_is_depth_format(view_create_info.format)) {
+        view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    } else {
+        view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    vkCreateImageView(vk_context.device, &view_create_info, nullptr, &vulkan_texture->image_view);
+
+    return {vulkan_texture};
+}
+
+void vk_destroy_graphics_pipeline(const GPUPipelineState& gpu_pipeline_state) {
+}
+
+void vk_destroy_render_pass(const GPURenderPass& gpu_render_pass) {
+    if (!gpu_render_pass.handler) return;
+    VulkanRenderPass* vulkan_render_pass = static_cast<VulkanRenderPass *>(gpu_render_pass.handler);
+    vkDestroyFramebuffer(vk_context.device, vulkan_render_pass->framebuffer, nullptr);
+    vkDestroyRenderPass(vk_context.device, vulkan_render_pass->render_pass, nullptr);
+    delete vulkan_render_pass;
+}
+
+void vk_destroy_texture(const GPUTexture& gpu_texture) {
+    VulkanTexture* vulkan_texture = static_cast<VulkanTexture *>(gpu_texture.handler);
+    if (vulkan_texture->image_view) {
+        vkDestroyImageView(vk_context.device, vulkan_texture->image_view, nullptr);
+    }
+    if (vulkan_texture->allocation) {
+        vmaDestroyImage(vk_context.allocator, vulkan_texture->image, vulkan_texture->allocation);
+    }
+    delete vulkan_texture;
+}
+
+
 GPUCommands vk_begin_frame() {
     vkWaitForFences(vk_context.device, 1, &vk_context.in_flight_fences[vk_context.current_frame], VK_TRUE, UINT64_MAX);
     vkResetFences(vk_context.device, 1, &vk_context.in_flight_fences[vk_context.current_frame]);
@@ -889,32 +1182,29 @@ void vk_begin_render_pass(const GPUCommands& cmd, const BeginRenderPassInfo& beg
         vkCmdBeginRenderPass(vulkan_commands->vk_command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
     } else if (begin_render_pass_info.render_pass) {
-        // VulkanCommands* vulkanCommands = static_cast<VulkanCommands*>(gpuCommands.handler);
-        // VulkanRenderPass* vulkanRenderPass = static_cast<VulkanRenderPass*>(renderPassInfo.renderPass.handler);
-        //
-        // VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-        // renderPassBeginInfo.renderPass = vulkanRenderPass->renderPass;
-        // renderPassBeginInfo.framebuffer = vulkanRenderPass->framebuffer;
-        // renderPassBeginInfo.renderArea.offset = {0, 0};
-        // renderPassBeginInfo.renderArea.extent = {renderPassInfo.extent.width, renderPassInfo.extent.height};
-        //
-        // for (int i = 0; i < renderPassInfo.clearValues.Size(); ++i)
-        // {
-        //  auto& c = renderPassInfo.clearValues[i];
-        //  if (!c.depth)
-        //  {
-        //   vulkanRenderPass->clearValues[i].color = {c.color.r, c.color.g, c.color.b, c.color.w};
-        //  }
-        //  else
-        //  {
-        //   vulkanRenderPass->clearValues[i].depthStencil = {c.depthStencil.x, static_cast<u32>(c.depthStencil.y)};
-        //  }
-        // }
-        //
-        // renderPassBeginInfo.clearValueCount = vulkanRenderPass->clearValues.Size();
-        // renderPassBeginInfo.pClearValues = vulkanRenderPass->clearValues.Data();
-        //
-        // vkCmdBeginRenderPass(vulkanCommands->commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        VulkanCommands* vulkan_commands = static_cast<VulkanCommands *>(cmd.handler);
+        VulkanRenderPass* vulkan_render_pass = static_cast<VulkanRenderPass *>(begin_render_pass_info.render_pass.handler);
+
+        VkRenderPassBeginInfo render_pass_begin_info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        render_pass_begin_info.renderPass = vulkan_render_pass->render_pass;
+        render_pass_begin_info.framebuffer = vulkan_render_pass->framebuffer;
+        render_pass_begin_info.renderArea.offset = {0, 0};
+        render_pass_begin_info.renderArea.extent = {begin_render_pass_info.extent.x, begin_render_pass_info.extent.y};
+
+        for (int i = 0; i < begin_render_pass_info.clear_values.size(); ++i) {
+            const Vec4& c = begin_render_pass_info.clear_values[i];
+            vulkan_render_pass->clear_values[i].color = {c.r, c.g, c.b, c.a};
+        }
+
+        if (vulkan_render_pass->clear_values.size() > begin_render_pass_info.clear_values.size()) {
+            vulkan_render_pass->clear_values[vulkan_render_pass->clear_values.size() - 1].depthStencil = {
+                begin_render_pass_info.depth_stencil.x, static_cast<u32>(begin_render_pass_info.depth_stencil.y)
+            };
+        }
+
+        render_pass_begin_info.clearValueCount = vulkan_render_pass->clear_values.size();
+        render_pass_begin_info.pClearValues = vulkan_render_pass->clear_values.data();
+        vkCmdBeginRenderPass(vulkan_commands->vk_command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
     }
 }
 
@@ -999,6 +1289,9 @@ void vulkan_device_register(GPUDeviceAPI& gpu_device_api) {
     gpu_device_api.init = vk_init;
     gpu_device_api.shutdown = vk_shutdown;
     gpu_device_api.create_swapchain = vk_create_swapchain;
+    gpu_device_api.create_graphics_pipeline = vk_create_graphics_pipeline;
+    gpu_device_api.create_render_pass = vk_create_render_pass;
+    gpu_device_api.create_texture = vk_create_texture;
     gpu_device_api.begin_render_pass = vk_begin_render_pass;
     gpu_device_api.end_render_pass = vk_end_render_pass;
     gpu_device_api.set_viewport = vk_set_viewport;
@@ -1007,4 +1300,7 @@ void vulkan_device_register(GPUDeviceAPI& gpu_device_api) {
     gpu_device_api.end_frame = vk_end_frame;
     gpu_device_api.wait = vk_wait;
     gpu_device_api.destroy_swapchain = vk_destroy_swapchain;
+    gpu_device_api.destroy_graphics_pipeline = vk_destroy_graphics_pipeline;
+    gpu_device_api.destroy_render_pass = vk_destroy_render_pass;
+    gpu_device_api.destroy_texture = vk_destroy_texture;
 }

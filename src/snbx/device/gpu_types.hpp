@@ -6,12 +6,32 @@ operator bool() const {return handler != nullptr; }		    \
 bool operator==(const StructName& b) const { return this->handler == b.handler; } \
 bool operator!=(const StructName& b) const { return this->handler != b.handler; } \
 }
+#include "snbx/common.hpp"
 
 GPU_HANDLER(GPUSwapchain);
 GPU_HANDLER(GPUCommands);
 GPU_HANDLER(GPURenderPass);
+GPU_HANDLER(GPUTexture);
 GPU_HANDLER(GPUPipelineState);
 
+
+enum class GPUFormat {
+    R,
+    R16F,
+    R32F,
+    RG,
+    RG16F,
+    RG32F,
+    RGB,
+    RGB16F,
+    RGB32F,
+    RGBA,
+    RGBA16F,
+    RGBA32F,
+    BGRA,
+    Depth,
+    Undefined,
+};
 
 enum class CullMode {
     None = 0,
@@ -67,10 +87,76 @@ enum class ShaderStage
     All             = 1 << 12,
 };
 
-enum class ShaderBinTarget
-{
-    SPIRV       = 0,
-    DXIL        = 1
+enum class ResourceLayout {
+    Undefined = 0,
+    General = 1,
+    ColorAttachment = 2,
+    DepthStencilAttachment = 3,
+    ShaderReadOnly = 4,
+    CopyDest = 5,
+    CopySource = 6,
+    Present = 7
+};
+
+enum class LoadOp {
+    Load = 0,
+    Clear = 1,
+    DontCare = 2
+};
+
+enum class StoreOp {
+    Store = 0,
+    DontCare = 1
+};
+
+enum class RenderFlags : i32 {
+    None            = 0 << 0,
+    ShaderResource  = 1 << 0,
+    DepthStencil    = 1 << 2,
+    RenderPass      = 1 << 3,
+    Storage         = 1 << 4,
+    TransferDst     = 1 << 5,
+    TransferSrc     = 1 << 6,
+};
+
+enum class ViewType {
+    Type1D = 0,
+    Type2D = 1,
+    Type3D = 2,
+    TypeCube = 3,
+    Type1DArray = 4,
+    Type2DArray = 5,
+    TypeCubeArray = 6,
+    Undefined = 7,
+};
+
+ENUM_FLAGS(RenderFlags, i32)
+
+
+struct AttachmentCreation {
+    GPUTexture texture{};
+    ResourceLayout initial_layout = ResourceLayout::Undefined;
+    ResourceLayout final_layout = ResourceLayout::Undefined;
+    LoadOp load_op = LoadOp::Clear;
+    StoreOp store_op = StoreOp::Store;
+};
+
+struct RenderPassCreation {
+    Span<AttachmentCreation> attachments{};
+};
+
+struct TextureCreation {
+    UVec3       extent = {};
+    GPUFormat   format = GPUFormat::RGBA;
+    RenderFlags render_flags = RenderFlags::None;
+    u32         mip_levels = 1;
+    u32         array_layers = 1;
+    ViewType    view_type = ViewType::Undefined;
+};
+
+enum class ShaderBinTarget {
+    SPIRV = 0,
+    DXIL = 1
 };
 
 struct ShaderCreation

@@ -50,6 +50,7 @@ using Path = std::filesystem::path;
 using Vec2 = glm::vec2;
 using UVec2 = glm::uvec2;
 using Vec3 = glm::vec3;
+using UVec3 = glm::uvec3;
 using Vec4 = glm::vec4;
 using Quat = glm::quat;
 using Mat4x4 = glm::mat4x4;
@@ -71,3 +72,15 @@ typedef signed long long    i64;
 
 typedef float   f32;
 typedef double  f64;
+
+#define ENUM_FLAGS(ENUMNAME, ENUMTYPE) \
+inline ENUMNAME& operator |= (ENUMNAME& a, ENUMNAME b)  noexcept { return (ENUMNAME&)(((ENUMTYPE&)a) |= ((ENUMTYPE)b)); } \
+inline ENUMNAME& operator &= (ENUMNAME& a, ENUMNAME b)  noexcept { return (ENUMNAME&)(((ENUMTYPE&)a) &= ((ENUMTYPE)b)); } \
+inline ENUMNAME& operator ^= (ENUMNAME& a, ENUMNAME b)  noexcept { return (ENUMNAME&)(((ENUMTYPE&)a) ^= ((ENUMTYPE)b)); } \
+inline ENUMNAME& operator <<= (ENUMNAME& a, ENUMTYPE b)  noexcept { return (ENUMNAME&)(((ENUMTYPE&)a) <<= ((ENUMTYPE)b)); } \
+inline ENUMNAME& operator >>= (ENUMNAME& a, ENUMTYPE b)  noexcept { return (ENUMNAME&)(((ENUMTYPE&)a) >>= ((ENUMTYPE)b)); } \
+inline ENUMNAME operator | (ENUMNAME a, ENUMNAME b)	noexcept { return ENUMNAME(((ENUMTYPE)a) | ((ENUMTYPE)b));		} \
+inline ENUMNAME operator & (ENUMNAME a, ENUMNAME b)	noexcept { return ENUMNAME(((ENUMTYPE)a) & ((ENUMTYPE)b));		} \
+constexpr inline bool operator && (ENUMNAME a, ENUMNAME b)	noexcept { return ((ENUMTYPE)a & ((ENUMTYPE)b));	    } \
+inline ENUMNAME operator ~ (ENUMNAME a)				noexcept { return ENUMNAME(~((ENUMTYPE)a));						} \
+inline ENUMNAME operator ^ (ENUMNAME a, ENUMNAME b)	noexcept { return ENUMNAME(((ENUMTYPE)a) ^ (ENUMTYPE)b);		}

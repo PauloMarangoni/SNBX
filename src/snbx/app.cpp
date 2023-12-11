@@ -1,5 +1,6 @@
 #include "app.hpp"
 #include "common.hpp"
+#include "render/render_test.hpp"
 #include "shader/shader_compiler.hpp"
 #include "snbx/device/gpu_device.hpp"
 #include "snbx/platform/platform.hpp"
@@ -25,10 +26,13 @@ void app_init() {
     swapchain = gpu_device_create_swapchain(SwapchainCreation{
         .vsync = true
     }, window);
+
+    render_test_init(platform_window_get_size(window));
 }
 
 bool app_update() {
     platform_process_events();
+
     if (platform_window_request_close(window)) {
         running = false;
         return false;
@@ -37,6 +41,8 @@ bool app_update() {
     UVec2 swapchain_extent = platform_window_get_size(window);
 
     GPUCommands cmd = gpu_device_begin_frame();
+
+    render_test_render(cmd);
 
     Vec4 clear_value = Vec4(0, 0, 0, 1);
 
@@ -58,6 +64,8 @@ bool app_update() {
     Rect rect = {0, 0, swapchain_extent.x, swapchain_extent.y};
     gpu_device_set_scissor(cmd, rect);
 
+    render_test_blit(cmd);
+
     gpu_device_end_render_pass(cmd);
 
     gpu_device_end_frame(swapchain);
@@ -67,6 +75,7 @@ bool app_update() {
 
 void app_destroy() {
     gpu_device_wait();
+    render_test_shutdown();
     gpu_device_destroy_swapchain(swapchain);
     gpu_device_shutdown();
     platform_destroy_window(window);
