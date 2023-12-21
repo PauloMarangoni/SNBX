@@ -4,13 +4,15 @@
 #pragma once
 
 #include "Defines.hpp"
+#include "SNBX/Platform/PlatformTypes.hpp"
+#include "SNBX/Render/RenderTypes.hpp"
 
 namespace SNBX
 {
 
 	class SNBX_API Application
 	{
-		class ApplicationBuilder
+		class SNBX_API ApplicationBuilder
 		{
 		public:
 
@@ -32,12 +34,26 @@ namespace SNBX
 				return *this;
 			}
 
+			ApplicationBuilder& Size(const UVec2& size)
+			{
+				m_size = size;
+				return *this;
+			}
+
+			ApplicationBuilder& Device(GPUDeviceType device)
+			{
+				m_device = device;
+				return *this;
+			}
+
 			Application Build();
 
 		private:
-			bool   m_fullscreen = false;
-			bool   m_vsync      = true;
-			String m_titie      = "SNBX";
+			bool          m_fullscreen = false;
+			bool          m_vsync      = true;
+			String        m_titie      = "SNBX";
+			UVec2         m_size       = UVec2(1920, 1080);
+			GPUDeviceType m_device     = GPUDeviceType_OpenGL;
 
 			friend class Application;
 		};
@@ -53,7 +69,9 @@ namespace SNBX
 
 	private:
 		bool m_running = true;
+		Window* m_window = nullptr;
 
+		Application(const ApplicationBuilder& builder);
 	};
 
 }

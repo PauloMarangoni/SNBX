@@ -10,6 +10,7 @@ int main(int argc, char** argv)
 	Application app = Application::Builder()
 		.Title("SceneView")
 		.Fullscreen(true)
+		.Device(GPUDeviceType_OpenGL)
 		.Build();
 
 	while(app.Update())
