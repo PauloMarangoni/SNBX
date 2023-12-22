@@ -7,13 +7,28 @@
 
 namespace SNBX
 {
-	struct Window;
 
-	enum WindowFlags_
+	struct Extent
 	{
-		WindowFlags_None          = 0,
-		WindowFlags_Maximized     = 1 << 0
+		u32 width;
+		u32 height;
 	};
 
-	using WindowFlags = i32;
+
+	struct Rect
+	{
+		i32 x;
+		i32 y;
+		u32 width;
+		u32 height;
+	};
+
+
+	struct FRect
+	{
+		f32 x;
+		f32 y;
+		f32 width;
+		f32 height;
+	};
 }

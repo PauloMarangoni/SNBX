@@ -3,17 +3,10 @@
 
 #pragma once
 
-#include "SNBX/Defines.hpp"
-
-namespace SNBX
+namespace SNBX::GL
 {
-	struct Window;
-
-	enum WindowFlags_
+	struct GLSwapchain
 	{
-		WindowFlags_None          = 0,
-		WindowFlags_Maximized     = 1 << 0
+		Window* window;
 	};
-
-	using WindowFlags = i32;
 }

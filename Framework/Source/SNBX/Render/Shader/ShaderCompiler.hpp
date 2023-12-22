@@ -5,15 +5,8 @@
 
 #include "SNBX/Defines.hpp"
 
-namespace SNBX
+namespace SNBX::ShaderCompiler
 {
-	struct Window;
-
-	enum WindowFlags_
-	{
-		WindowFlags_None          = 0,
-		WindowFlags_Maximized     = 1 << 0
-	};
-
-	using WindowFlags = i32;
+	SNBX_API void Init();
+	SNBX_API void Shutdown();
 }

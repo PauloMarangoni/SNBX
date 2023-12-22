@@ -7,13 +7,10 @@
 
 namespace SNBX
 {
-	struct Window;
-
-	enum WindowFlags_
+	struct AssetHandler
 	{
-		WindowFlags_None          = 0,
-		WindowFlags_Maximized     = 1 << 0
+		void (*CompileAsset)(const Path& assetPath);
+		void (*LoadAsset)(const Path& assetPath, CPtr instance);
+		void (*DestroyAsset)(CPtr instance);
 	};
-
-	using WindowFlags = i32;
 }

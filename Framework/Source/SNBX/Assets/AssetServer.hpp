@@ -4,16 +4,11 @@
 #pragma once
 
 #include "SNBX/Defines.hpp"
+#include "AssetTypes.hpp"
 
-namespace SNBX
+namespace SNBX::AssetServer
 {
-	struct Window;
-
-	enum WindowFlags_
-	{
-		WindowFlags_None          = 0,
-		WindowFlags_Maximized     = 1 << 0
-	};
-
-	using WindowFlags = i32;
+	SNBX_API void Init();
+	SNBX_API void AddAssetHandler(AssetHandler assetHandler, StringView extensions);
+	SNBX_API void Shutdown();
 }

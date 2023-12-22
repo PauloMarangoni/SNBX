@@ -3,6 +3,8 @@
 #ifdef SNBX_DESKTOP
 
 #include "SNBX/Core/Logger.hpp"
+#include "SNBX/Render/Device/OpenGL/GLPlatform.hpp"
+#include "PlatformStyle.hpp"
 #include <GLFW/glfw3.h>
 
 namespace SNBX
@@ -22,6 +24,8 @@ namespace SNBX
 		}
 
 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
+		PlatformStyle::Init();
 	}
 
 	void Platform::InitOpenGL()
@@ -33,6 +37,26 @@ namespace SNBX
 #ifdef SNBX_APPLE
 		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
+	}
+
+	void Platform::SetVSync(bool vsync)
+	{
+		glfwSwapInterval(vsync);
+	}
+
+	void Platform::SwapBuffers(Window* window)
+	{
+		glfwSwapBuffers(window->handler);
+	}
+
+	void Platform::MakeContextCurrent(SNBX::Window* window)
+	{
+		glfwMakeContextCurrent(window->handler);
+	}
+
+	CPtr Platform::GetProcAddress()
+	{
+		return reinterpret_cast<CPtr>(glfwGetProcAddress);
 	}
 
 	void Platform::Shutdown()
@@ -52,9 +76,18 @@ namespace SNBX
 		Window* window = new Window{};
 		window->handler = glfwCreateWindow(size.x, size.y, title.data(), nullptr, nullptr);
 
+		PlatformStyle::ApplyDarkStyle(window->handler);
+
 		glfwShowWindow(window->handler);
 
 		return window;
+	}
+
+	Extent Platform::GetWindowExtent(Window* window)
+	{
+		i32 width, height;
+		glfwGetWindowSize(window->handler, &width, &height);
+		return Extent{static_cast<u32>(width), static_cast<u32>(height)};
 	}
 
 	void Platform::ProcessEvents()
