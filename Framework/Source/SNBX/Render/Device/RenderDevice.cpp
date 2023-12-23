@@ -12,7 +12,7 @@ namespace SNBX
 
 	void RenderDevice::Init(const AppCreation& creation)
 	{
-		if (creation.device == GPUDeviceType_OpenGL)
+		if (creation.Device == RenderDeviceType_OpenGL)
 		{
 			RegisterOpenGL(renderDeviceApi);
 		}
@@ -27,6 +27,16 @@ namespace SNBX
 	RenderSwapchain RenderDevice::CreateSwapchain(Window* window, bool vsync)
 	{
 		return renderDeviceApi.CreateSwapchain(window, vsync);
+	}
+
+	RenderPipelineState RenderDevice::CreateGraphicsPipelineState(const GraphicsPipelineCreation& graphicsPipelineCreation)
+	{
+		return renderDeviceApi.CreateGraphicsPipelineState(graphicsPipelineCreation);
+	}
+
+	void RenderDevice::DestroyGraphicsPipelineState(RenderPipelineState pipelineState)
+	{
+		renderDeviceApi.DestroyGraphicsPipelineState(pipelineState);
 	}
 
 	void RenderDevice::DestroySwapchain(RenderSwapchain swapchain)

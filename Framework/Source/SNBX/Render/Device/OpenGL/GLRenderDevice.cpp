@@ -49,6 +49,16 @@ namespace SNBX::GL
 		delete static_cast<GLSwapchain*>(swapchain.handler);
 	}
 
+	RenderPipelineState CreateGraphicsPipelineState(const GraphicsPipelineCreation& graphicsPipelineCreation)
+	{
+		return {};
+	}
+
+	void DestroyGraphicsPipelineState(RenderPipelineState pipelineState)
+	{
+
+	}
+
 	void BeginRenderPass(RenderCommands cmd, const BeginRenderPassInfo& beginRenderPassInfo)
 	{
 		if (beginRenderPassInfo.swapchain)
@@ -94,15 +104,17 @@ namespace SNBX
 {
 	void RegisterOpenGL(RenderDeviceAPI& renderDeviceApi)
 	{
-		renderDeviceApi.Init             = GL::Init;
-		renderDeviceApi.Shutdown         = GL::Shutdown;
-		renderDeviceApi.CreateSwapchain  = GL::CreateSwapchain;
-		renderDeviceApi.DestroySwapchain = GL::DestroySwapchain;
-		renderDeviceApi.BeginRenderPass  = GL::BeginRenderPass;
-		renderDeviceApi.EndRenderPass    = GL::EndRenderPass;
-		renderDeviceApi.SetViewport      = GL::SetViewport;
-		renderDeviceApi.SetScissor       = GL::SetScissor;
-		renderDeviceApi.BeginFrame       = GL::BeginFrame;
-		renderDeviceApi.EndFrame         = GL::EndFrame;
+		renderDeviceApi.Init                         = GL::Init;
+		renderDeviceApi.Shutdown                     = GL::Shutdown;
+		renderDeviceApi.CreateSwapchain              = GL::CreateSwapchain;
+		renderDeviceApi.CreateGraphicsPipelineState  = GL::CreateGraphicsPipelineState;
+		renderDeviceApi.DestroyGraphicsPipelineState = GL::DestroyGraphicsPipelineState;
+		renderDeviceApi.DestroySwapchain             = GL::DestroySwapchain;
+		renderDeviceApi.BeginRenderPass              = GL::BeginRenderPass;
+		renderDeviceApi.EndRenderPass                = GL::EndRenderPass;
+		renderDeviceApi.SetViewport                  = GL::SetViewport;
+		renderDeviceApi.SetScissor                   = GL::SetScissor;
+		renderDeviceApi.BeginFrame                   = GL::BeginFrame;
+		renderDeviceApi.EndFrame                     = GL::EndFrame;
 	}
 }

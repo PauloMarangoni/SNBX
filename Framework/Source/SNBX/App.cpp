@@ -19,6 +19,9 @@ namespace SNBX
 		Window* window = nullptr;
 		RenderSwapchain swapchain{};
 		Vec4            clearColor = Vec4{0, 0, 0, 1};
+		FnOnRender      OnRender   = nullptr;
+		FnOnUpdate      OnUpdate   = nullptr;
+		FnOnBlit        OnBlit     = nullptr;
 	};
 
 	AppContext appContext{};
@@ -34,16 +37,19 @@ namespace SNBX
 		AssetServer::Init();
 
 		WindowFlags flags = 0;
-		if (creation.fullscreen)
+		if (creation.Fullscreen)
 		{
 			flags |= WindowFlags_Maximized;
 		}
 
-		appContext.window     = Platform::CreateWindow(creation.title, creation.size, flags);
-		appContext.swapchain  = RenderDevice::CreateSwapchain(appContext.window, creation.vsync);
-		appContext.clearColor = creation.clearColor;
+		appContext.window     = Platform::CreateWindow(creation.Title, creation.Size, flags);
+		appContext.swapchain  = RenderDevice::CreateSwapchain(appContext.window, creation.Vsync);
+		appContext.clearColor = creation.ClearColor;
+		appContext.OnUpdate   = creation.OnUpdate;
+		appContext.OnRender   = creation.OnRender;
+		appContext.OnBlit     = creation.OnBlit;
 
-		Log::Info("{} Initialized", creation.title);
+		Log::Info("{} Initialized", creation.Title);
 	}
 
 	bool App::Update()
@@ -54,9 +60,19 @@ namespace SNBX
 			appContext.running = false;
 		}
 
+		if (appContext.OnUpdate)
+		{
+			appContext.OnUpdate(0);
+		}
+
 		Extent extent = Platform::GetWindowExtent(appContext.window);
 
 		RenderCommands cmd = RenderDevice::BeginFrame();
+
+		if (appContext.OnRender)
+		{
+			appContext.OnRender(cmd);
+		}
 
 		RenderDevice::BeginRenderPass(cmd, BeginRenderPassInfo{
 			.swapchain = appContext.swapchain,
@@ -75,10 +91,30 @@ namespace SNBX
 		auto scissor = Rect{0, 0, extent.width, extent.height};
 		RenderDevice::SetScissor(cmd, scissor);
 
+		if (appContext.OnBlit)
+		{
+			appContext.OnBlit(cmd);
+		}
+
 		RenderDevice::EndRenderPass(cmd);
 
 		RenderDevice::EndFrame(appContext.swapchain);
 
+		return appContext.running;
+	}
+
+	RenderSwapchain App::GetSwapchain()
+	{
+		return appContext.swapchain;
+	}
+
+	Window* App::GetWindow()
+	{
+		return appContext.window;
+	}
+
+	bool App::IsRunning()
+	{
 		return appContext.running;
 	}
 
@@ -91,4 +127,6 @@ namespace SNBX
 		RenderDevice::Shutdown();
 		Platform::Shutdown();
 	}
+
+
 }

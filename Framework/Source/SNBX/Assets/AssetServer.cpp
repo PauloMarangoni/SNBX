@@ -9,7 +9,7 @@ namespace SNBX
 {
 	struct AssetStorage
 	{
-
+		String id;
 	};
 
 	struct AssetContext
@@ -18,34 +18,49 @@ namespace SNBX
 		Path                                     dataPath;
 		HashMap<String, SharedPtr<AssetStorage>> assets;
 		HashMap<String, AssetHandler>            assetHandlers;
+		HashMap<TypeID , AssetHandler>           assetHandlersById;
 	};
 
 	AssetContext assetContext{};
 
-	void LoadAsset(const String& path, const Path& assetPath)
+	void LoadAsset(AssetStorage& parent, const String& path, const Path& assetPath)
 	{
-		auto it = assetContext.assetHandlers.find(assetPath.extension().string());
-		if (it != assetContext.assetHandlers.end())
+		auto it = assetContext.assets.find(path);
+		if (it == assetContext.assets.end())
 		{
-			if (it->second.CompileAsset)
+			String id = parent.id + "_" + assetPath.filename().string();
+			for (char & i : id)
 			{
-				it->second.CompileAsset(assetPath);
+				if (i == '.')
+				{
+					i = '_';
+				}
+			}
+			it = assetContext.assets.emplace(path, std::make_shared<AssetStorage>(id)).first;
+		}
+
+		auto itHandler = assetContext.assetHandlers.find(assetPath.extension().string());
+		if (itHandler != assetContext.assetHandlers.end())
+		{
+			if (itHandler->second.CompileAsset)
+			{
+				itHandler->second.CompileAsset(it->second->id, assetPath);
 			}
 		}
 	}
 
-	void ScanFolder(const String& path, const Path& assetPath)
+	void ScanFolder(AssetStorage& parent, const String& path, const Path& assetPath)
 	{
 		for (const DirEntry& dirEntry: DirIterator(assetPath))
 		{
-			String assetPath = path + "/" + dirEntry.path().filename().string();
+			String assetPathId = path + "/" + dirEntry.path().filename().string();
 			if (dirEntry.is_directory())
 			{
-				ScanFolder(assetPath, dirEntry.path());
+				ScanFolder(parent, assetPathId, dirEntry.path());
 			}
 			else
 			{
-				LoadAsset(assetPath, dirEntry.path());
+				LoadAsset(parent, assetPathId, dirEntry.path());
 			}
 		}
 	}
@@ -74,16 +89,21 @@ namespace SNBX
 
 		for (const DirEntry& dirEntry: DirIterator(assetContext.assetPath))
 		{
+			AssetStorage parent{
+				.id = dirEntry.path().filename().string()
+			};
+
 			if (dirEntry.is_directory())
 			{
-				ScanFolder(dirEntry.path().filename().string() + ":/", dirEntry.path());
+				ScanFolder(parent, dirEntry.path().filename().string() + ":/", dirEntry.path());
 			}
 		}
 	}
 
-	void AssetServer::AddAssetHandler(AssetHandler assetHandler, StringView extensions)
+	void AssetServer::AddAssetHandler(AssetHandler assetHandler, StringView extensions, TypeID typeId)
 	{
 		assetContext.assetHandlers.emplace(extensions, assetHandler);
+		assetContext.assetHandlersById.emplace(typeId, assetHandler);
 	}
 
 	void AssetServer::Shutdown()

@@ -14,15 +14,17 @@ namespace SNBX
 		void (*Init)();
 		void (*Shutdown)();
 
-		RenderSwapchain (*CreateSwapchain)(Window* window, bool vsync);
-		void            (*DestroySwapchain)(RenderSwapchain swapchain);
+		RenderSwapchain         (*CreateSwapchain)(Window* window, bool vsync);
+		void                    (*DestroySwapchain)(RenderSwapchain swapchain);
+		RenderPipelineState     (*CreateGraphicsPipelineState)(const GraphicsPipelineCreation& graphicsPipelineCreation);
+		void                    (*DestroyGraphicsPipelineState)(RenderPipelineState renderPipelineState);
 
-		void            (*BeginRenderPass)(RenderCommands cmd, const BeginRenderPassInfo& beginRenderPassInfo);
-		void            (*EndRenderPass)(RenderCommands cmd);
-		void            (*SetViewport)(RenderCommands cmd, const ViewportInfo& viewportInfo);
-		void            (*SetScissor)(RenderCommands cmd, const Rect& rect);
+		void                    (*BeginRenderPass)(RenderCommands cmd, const BeginRenderPassInfo& beginRenderPassInfo);
+		void                    (*EndRenderPass)(RenderCommands cmd);
+		void                    (*SetViewport)(RenderCommands cmd, const ViewportInfo& viewportInfo);
+		void                    (*SetScissor)(RenderCommands cmd, const Rect& rect);
 
-		RenderCommands  (*BeginFrame)();
-		void            (*EndFrame)(RenderSwapchain swapchain);
+		RenderCommands          (*BeginFrame)();
+		void                    (*EndFrame)(RenderSwapchain swapchain);
 	};
 }

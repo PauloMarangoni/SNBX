@@ -4,13 +4,13 @@
 #pragma once
 
 #include "SNBX/Defines.hpp"
+#include "RenderTypes.hpp"
 
 namespace SNBX
 {
-	struct AssetHandler
+	struct ShaderAsset
 	{
-		void (*CompileAsset)(const StringView& id, const Path& assetPath);
-		void (*LoadAsset)(const StringView& id, const Path& assetPath, CPtr instance);
-		void (*DestroyAsset)(CPtr instance);
+		Array<u8>       shaderData{};
+		ShaderBinTarget shaderBinTarget = {};
 	};
 }

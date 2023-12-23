@@ -17,9 +17,9 @@ limitations under the License.
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
     <Type Name="spirv_cross::VectorView&lt;*,*&gt;" Inheritable="false">
-        <DisplayString>{{size = {buffer_size}}}</DisplayString>
+        <DisplayString>{{Size = {buffer_size}}}</DisplayString>
         <Expand>
-            <Item Name="[size]" ExcludeView="simple">buffer_size</Item>
+            <Item Name="[Size]" ExcludeView="simple">buffer_size</Item>
             <ArrayItems>
                 <Size>buffer_size</Size>
                 <ValuePointer Condition="ptr != 0">ptr</ValuePointer>
@@ -27,9 +27,9 @@ limitations under the License.
         </Expand>
     </Type>
     <Type Name="spirv_cross::SmallVector&lt;*,*&gt;" Inheritable="false">
-        <DisplayString>{{size = {buffer_size}}}</DisplayString>
+        <DisplayString>{{Size = {buffer_size}}}</DisplayString>
         <Expand>
-            <Item Name="[size]" ExcludeView="simple">buffer_size</Item>
+            <Item Name="[Size]" ExcludeView="simple">buffer_size</Item>
             <ArrayItems>
                 <Size>buffer_size</Size>
                 <ValuePointer Condition="ptr != 0">ptr</ValuePointer>

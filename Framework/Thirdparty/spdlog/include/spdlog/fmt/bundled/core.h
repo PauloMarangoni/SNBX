@@ -466,7 +466,7 @@ template <typename Char> class basic_string_view {
   template <typename S, FMT_ENABLE_IF(std::is_same<
                                       S, detail::std_string_view<Char>>::value)>
   FMT_CONSTEXPR basic_string_view(S s) noexcept
-      : data_(s.data()), size_(s.size()) {}
+      : data_(s.data()), size_(s.Size()) {}
 
   /** Returns a pointer to the string data. */
   constexpr auto data() const noexcept -> const Char* { return data_; }
@@ -1072,7 +1072,7 @@ class iterator_buffer<std::back_insert_iterator<Container>,
 
  public:
   explicit iterator_buffer(Container& c)
-      : buffer<typename Container::value_type>(c.size()), container_(c) {}
+      : buffer<typename Container::value_type>(c.Size()), container_(c) {}
   explicit iterator_buffer(std::back_insert_iterator<Container> out, size_t = 0)
       : iterator_buffer(get_container(out)) {}
 

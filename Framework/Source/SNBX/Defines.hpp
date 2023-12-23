@@ -48,13 +48,13 @@ using StringView = std::string_view;
 using String = std::string;
 
 template<typename T>
-using Vec = std::vector<T>;
+using Array = std::vector<T>;
 
 template<typename T>
 using Span = std::span<T>;
 
 template<typename T, std::size_t N>
-using Array = std::array<T, N>;
+using FixedArray = std::array<T, N>;
 
 template<typename Key, typename Value>
 using HashMap = std::unordered_map<Key, Value>;

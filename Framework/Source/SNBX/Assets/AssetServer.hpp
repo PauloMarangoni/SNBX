@@ -9,6 +9,6 @@
 namespace SNBX::AssetServer
 {
 	SNBX_API void Init();
-	SNBX_API void AddAssetHandler(AssetHandler assetHandler, StringView extensions);
+	SNBX_API void AddAssetHandler(AssetHandler assetHandler, StringView extensions, TypeID typeId);
 	SNBX_API void Shutdown();
 }
