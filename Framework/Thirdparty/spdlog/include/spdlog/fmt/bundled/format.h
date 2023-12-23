@@ -509,7 +509,7 @@ inline auto
 reserve(std::back_insert_iterator<Container> it, size_t n)
     -> checked_ptr<typename Container::value_type> {
   Container& c = get_container(it);
-  size_t size = c.Size();
+  size_t size = c.size();
   c.resize(size + n);
   return make_checked(get_data(c) + size, n);
 }
@@ -903,7 +903,7 @@ class basic_memory_buffer final : public detail::buffer<T> {
   using detail::buffer<T>::append;
   template <typename ContiguousRange>
   void append(const ContiguousRange& range) {
-    append(range.data(), range.data() + range.Size());
+    append(range.data(), range.data() + range.size());
   }
 };
 

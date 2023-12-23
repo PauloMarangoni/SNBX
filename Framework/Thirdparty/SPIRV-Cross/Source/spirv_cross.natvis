@@ -19,7 +19,7 @@ limitations under the License.
     <Type Name="spirv_cross::VectorView&lt;*,*&gt;" Inheritable="false">
         <DisplayString>{{Size = {buffer_size}}}</DisplayString>
         <Expand>
-            <Item Name="[Size]" ExcludeView="simple">buffer_size</Item>
+            <Item Name="[size]" ExcludeView="simple">buffer_size</Item>
             <ArrayItems>
                 <Size>buffer_size</Size>
                 <ValuePointer Condition="ptr != 0">ptr</ValuePointer>
@@ -29,7 +29,7 @@ limitations under the License.
     <Type Name="spirv_cross::SmallVector&lt;*,*&gt;" Inheritable="false">
         <DisplayString>{{Size = {buffer_size}}}</DisplayString>
         <Expand>
-            <Item Name="[Size]" ExcludeView="simple">buffer_size</Item>
+            <Item Name="[size]" ExcludeView="simple">buffer_size</Item>
             <ArrayItems>
                 <Size>buffer_size</Size>
                 <ValuePointer Condition="ptr != 0">ptr</ValuePointer>
